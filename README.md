@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 # JobSY
 =======
 # React + TypeScript + Vite
@@ -56,3 +57,6 @@ export default tseslint.config({
 })
 ```
 >>>>>>> c708164 (first commit)
+=======
+# JobSY
+>>>>>>> 760e1363d5bf0c70546d1ce82e8ab5536b0d8d99
