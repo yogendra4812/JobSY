@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AlertCircle, Scissors as CutIcon } from 'lucide-react';
-import SimpleNavbar from '../components/SimpleNavbar';
+import Navbar from '../components/Navbar';
 
 const UploadPage: React.FC = () => {
   const { user, updateUser } = useAuth();
@@ -72,7 +72,7 @@ const UploadPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f0f2f5]">
-      <SimpleNavbar />
+      <Navbar />
 
       <div className="max-w-2xl mx-auto text-center py-16 px-4">
         <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Upload Your Resume</h1>

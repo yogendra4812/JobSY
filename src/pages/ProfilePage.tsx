@@ -1,4 +1,3 @@
-// src/pages/ProfilePage.tsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -7,14 +6,24 @@ import {
   Upload as UploadIcon,
   ChevronRight
 } from 'lucide-react';
-import Navbar from '../components/Navbar';
+import Navbar from '../components/JobNavbar';
+
+// Define a type for the profile returned from the backend
+interface Profile {
+  full_name: string;
+  phone?: string;
+  email: string;
+  skills?: string[];
+  experience?: { position: string; company: string; duration: string }[];
+  education?: { degree: string; institution: string; year: string; score?: string }[];
+}
 
 const ProfilePage: React.FC = () => {
-  const { user, updateUser } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch full profile from backend
   useEffect(() => {
     const fetchProfile = async () => {
       if (!user?.email) return;
@@ -24,8 +33,8 @@ const ProfilePage: React.FC = () => {
             user.email
           )}`
         );
-        const body = await res.json();
-        if (res.ok) updateUser(body);
+        const data: Profile = await res.json();
+        if (res.ok) setProfile(data);
       } catch (err) {
         console.error('Profile fetch error', err);
       } finally {
@@ -33,7 +42,7 @@ const ProfilePage: React.FC = () => {
       }
     };
     fetchProfile();
-  }, [user?.email, updateUser]);
+  }, [user?.email]);
 
   if (!user || loading) {
     return (
@@ -58,7 +67,7 @@ const ProfilePage: React.FC = () => {
               </p>
             </div>
             <button
-              onClick={() => navigate('/upload')}
+              onClick={() => navigate('/reupload')}
               className="inline-flex items-center px-4 py-2 border rounded text-sm bg-white hover:bg-gray-50"
             >
               <UploadIcon className="h-4 w-4 mr-2" />
@@ -70,7 +79,7 @@ const ProfilePage: React.FC = () => {
             <div>
               <dt className="text-sm font-medium text-gray-500">Full name</dt>
               <dd className="mt-1 text-gray-900">
-                {user.full_name ?? 'N/A'}
+                {profile?.full_name || 'N/A'}
               </dd>
             </div>
 
@@ -78,7 +87,7 @@ const ProfilePage: React.FC = () => {
             <div>
               <dt className="text-sm font-medium text-gray-500">Phone number</dt>
               <dd className="mt-1 text-gray-900">
-                {user.phone ?? 'Not provided'}
+                {profile?.phone || 'Not provided'}
               </dd>
             </div>
 
@@ -94,9 +103,9 @@ const ProfilePage: React.FC = () => {
             <div>
               <dt className="text-sm font-medium text-gray-500">Skills</dt>
               <dd className="mt-1">
-                {user.skills?.length ? (
+                {profile?.skills?.length ? (
                   <div className="flex flex-wrap gap-2">
-                    {user.skills.map((s, i) => (
+                    {profile.skills.map((s, i) => (
                       <span
                         key={i}
                         className="px-3 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-sm"
@@ -115,9 +124,9 @@ const ProfilePage: React.FC = () => {
             <div>
               <dt className="text-sm font-medium text-gray-500">Experience</dt>
               <dd className="mt-1">
-                {user.experience?.length ? (
+                {profile?.experience?.length ? (
                   <ul className="divide-y">
-                    {user.experience.map((exp, i) => (
+                    {profile.experience.map((exp, i) => (
                       <li key={i} className="py-2">
                         <strong>{exp.position}</strong> at {exp.company}
                         <div className="text-gray-500 text-sm">
@@ -136,11 +145,21 @@ const ProfilePage: React.FC = () => {
             <div>
               <dt className="text-sm font-medium text-gray-500">Education</dt>
               <dd className="mt-1">
-                {user.education?.length ? (
+                {profile?.education?.length ? (
                   <ul className="divide-y">
-                    {user.education.map((ed, i) => (
+                    {profile.education.map((ed, i) => (
                       <li key={i} className="py-2">
-                        <strong>{ed.degree}</strong> from {ed.institution}
+                        <div className="flex justify-between">
+                          <strong>{ed.degree}</strong>
+                          {ed.score && (
+                            <span className="text-sm text-gray-600">
+                              Score: {ed.score}
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          from {ed.institution}
+                        </div>
                         <div className="text-gray-500 text-sm">
                           {ed.year}
                         </div>

@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import UploadPage from './pages/UploadPage';
+import Reupload from './pages/reupload';
 import ProfilePage from './pages/ProfilePage';
 import JobsPage from './pages/JobsPage';
 
@@ -22,6 +23,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <UploadPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/reupload" 
+            element={
+              <ProtectedRoute>
+                <Reupload />
               </ProtectedRoute>
             } 
           />

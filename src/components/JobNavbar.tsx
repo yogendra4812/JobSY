@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Briefcase as BriefcaseBusiness, LogOut } from 'lucide-react';
 
-const SimpleNavbar: React.FC = () => {
+const Navbar: React.FC = () => {
   const { isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -27,16 +27,24 @@ const SimpleNavbar: React.FC = () => {
       <nav className="bg-indigo-600 text-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            {/* Brand / Logo */}
-            <div className="flex items-center cursor-pointer" onClick={() => navigate('/') }>
+            {/* Logo / Brand */}
+            <div className="flex items-center cursor-pointer" onClick={() => navigate('/jobs')}>
               <BriefcaseBusiness className="h-8 w-8 mr-2" />
               <span className="font-bold text-xl">JobSY</span>
             </div>
 
-            {/* Always show Jobs link and conditional Login/Logout */}
+            {/* always show these nav buttons */}
             <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => navigate('/jobs')}
+                className="flex items-center text-white hover:text-indigo-200"
+              >
+                <BriefcaseBusiness className="h-5 w-5 mr-1" />
+                <span>Jobs</span>
+              </button>
+
               {isAuthenticated ? (
-                <button
+                <button 
                   onClick={handleLogoutClick}
                   className="flex items-center text-white hover:text-indigo-200"
                 >
@@ -44,7 +52,7 @@ const SimpleNavbar: React.FC = () => {
                   <span>Logout</span>
                 </button>
               ) : (
-                <button
+                <button 
                   onClick={() => navigate('/login')}
                   className="flex items-center text-white hover:text-indigo-200"
                 >
@@ -83,4 +91,4 @@ const SimpleNavbar: React.FC = () => {
   );
 };
 
-export default SimpleNavbar;
+export default Navbar;
