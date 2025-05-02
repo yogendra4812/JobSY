@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import Navbar from '../components/JobNavbar';
 
-// Define a type for the profile returned from the backend
 interface Profile {
   full_name: string;
   phone?: string;
@@ -26,12 +25,10 @@ const ProfilePage: React.FC = () => {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!user?.email) return;
+      if (!user?.id) return;
       try {
         const res = await fetch(
-          `https://jobsy-uye6.onrender.com/profile?user_email=${encodeURIComponent(
-            user.email
-          )}`
+          `https://jobsy-uye6.onrender.com/profile?user_id=${encodeURIComponent(user.id)}`
         );
         const data: Profile = await res.json();
         if (res.ok) setProfile(data);
@@ -42,7 +39,7 @@ const ProfilePage: React.FC = () => {
       }
     };
     fetchProfile();
-  }, [user?.email]);
+  }, [user?.id]); // Updated dependency
 
   if (!user || loading) {
     return (
@@ -62,9 +59,7 @@ const ProfilePage: React.FC = () => {
               <h3 className="text-lg font-medium text-gray-900">
                 Profile Information
               </h3>
-              <p className="text-sm text-gray-500">
-                Personal details and skills
-              </p>
+              <p className="text-sm text-gray-500">Personal details and skills</p>
             </div>
             <button
               onClick={() => navigate('/reupload')}
@@ -75,31 +70,18 @@ const ProfilePage: React.FC = () => {
             </button>
           </div>
           <div className="p-6 space-y-4">
-            {/* Full Name */}
             <div>
               <dt className="text-sm font-medium text-gray-500">Full name</dt>
-              <dd className="mt-1 text-gray-900">
-                {profile?.full_name || 'N/A'}
-              </dd>
+              <dd className="mt-1 text-gray-900">{profile?.full_name || 'N/A'}</dd>
             </div>
-
-            {/* Phone Number */}
             <div>
               <dt className="text-sm font-medium text-gray-500">Phone number</dt>
-              <dd className="mt-1 text-gray-900">
-                {profile?.phone || 'Not provided'}
-              </dd>
+              <dd className="mt-1 text-gray-900">{profile?.phone || 'Not provided'}</dd>
             </div>
-
-            {/* Email */}
             <div>
-              <dt className="text-sm font-medium text-gray-500">
-                Email address
-              </dt>
-              <dd className="mt-1 text-gray-900">{user.email}</dd>
+              <dt className="text-sm font-medium text-gray-500">Email address</dt>
+              <dd className="mt-1 text-gray-900">{profile?.email || user.email}</dd>
             </div>
-
-            {/* Skills */}
             <div>
               <dt className="text-sm font-medium text-gray-500">Skills</dt>
               <dd className="mt-1">
@@ -119,8 +101,6 @@ const ProfilePage: React.FC = () => {
                 )}
               </dd>
             </div>
-
-            {/* Experience */}
             <div>
               <dt className="text-sm font-medium text-gray-500">Experience</dt>
               <dd className="mt-1">
@@ -129,9 +109,7 @@ const ProfilePage: React.FC = () => {
                     {profile.experience.map((exp, i) => (
                       <li key={i} className="py-2">
                         <strong>{exp.position}</strong> at {exp.company}
-                        <div className="text-gray-500 text-sm">
-                          {exp.duration}
-                        </div>
+                        <div className="text-gray-500 text-sm">{exp.duration}</div>
                       </li>
                     ))}
                   </ul>
@@ -140,8 +118,6 @@ const ProfilePage: React.FC = () => {
                 )}
               </dd>
             </div>
-
-            {/* Education */}
             <div>
               <dt className="text-sm font-medium text-gray-500">Education</dt>
               <dd className="mt-1">
@@ -157,12 +133,8 @@ const ProfilePage: React.FC = () => {
                             </span>
                           )}
                         </div>
-                        <div>
-                          from {ed.institution}
-                        </div>
-                        <div className="text-gray-500 text-sm">
-                          {ed.year}
-                        </div>
+                        <div>from {ed.institution}</div>
+                        <div className="text-gray-500 text-sm">{ed.year}</div>
                       </li>
                     ))}
                   </ul>
@@ -173,7 +145,6 @@ const ProfilePage: React.FC = () => {
             </div>
           </div>
         </div>
-
         <div className="mt-8 text-center">
           <button
             onClick={() => navigate('/jobs')}
@@ -190,3 +161,4 @@ const ProfilePage: React.FC = () => {
 };
 
 export default ProfilePage;
+  
