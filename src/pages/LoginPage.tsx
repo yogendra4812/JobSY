@@ -14,16 +14,29 @@ const LoginPage: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) navigate('/jobs');
-  }, [isAuthenticated, navigate]);
+    // Only redirect to jobs on login flow
+    if (isAuthenticated && !isSignUp) {
+      navigate('/jobs');
+    }
+  }, [isAuthenticated, isSignUp, navigate]);
+
+  const isPasswordStrong = (pwd: string) => {
+    const hasLength = pwd.length >= 8;
+    const hasDigitOrSymbol = /[0-9]/.test(pwd) || /[^A-Za-z0-9]/.test(pwd);
+    return hasLength && hasDigitOrSymbol;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
 
+    if (isSignUp && !isPasswordStrong(password)) {
+      setError('Choose a strong password');
+      return;
+    }
+
+    setLoading(true);
     try {
       const endpoint = isSignUp ? '/user-register' : '/user-login';
       const payload = isSignUp
@@ -36,12 +49,20 @@ const LoginPage: React.FC = () => {
         body: JSON.stringify(payload),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(typeof body.detail === 'string' ? body.detail : 'Request failed');
 
+      if (!res.ok) {
+        if (!isSignUp) {
+          if (res.status === 401) throw new Error('Incorrect password');
+          if (res.status === 404) throw new Error('Email not registered');
+        }
+        throw new Error(typeof body.detail === 'string' ? body.detail : 'Request failed');
+      }
+
+      // On successful registration, log in and go to upload
+      login({ user_id: body.user_id, email });
       if (isSignUp) {
         navigate('/upload');
       } else {
-        login({ user_id: body.user_id, email });
         navigate('/jobs');
       }
     } catch (err: any) {
@@ -94,7 +115,7 @@ const LoginPage: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors text-sm"
+            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors text-sm disabled:opacity-50"
           >
             {loading ? 'Please wait...' : isSignUp ? 'Sign Up' : 'Login'}
           </button>
@@ -105,10 +126,10 @@ const LoginPage: React.FC = () => {
           <span
             className="text-blue-600 cursor-pointer hover:underline"
             onClick={() => {
-              setIsSignUp(!isSignUp);
+              setIsSignUp(prev => !prev);
               setError('');
               setPassword('');
-              if (isSignUp) setFullName('');
+              setFullName('');
             }}
           >
             {isSignUp ? 'Sign In' : 'Sign Up'}
