@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   Briefcase as BriefcaseBusiness,
   CheckCircle,
-  Bookmark
+  Bookmark,
 } from 'lucide-react';
 import Navbar from '../components/ProNavbar';
 import { Job } from '../types';
@@ -14,14 +14,22 @@ interface LocationState {
   job?: Job;
 }
 
+const predefinedRoles = [
+  'Python Developer',
+  'Software Developer',
+  'Web Designer',
+  'UI/UX Designer'
+];
+
 const JobsPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation() as Location & { state?: LocationState };
 
-  const initialRole = user?.preferredRoles?.[0] || '';
-  const [jobRole, setJobRole] = useState<string>(initialRole);
   const [locationFilter, setLocationFilter] = useState<string>('');
+  const [jobRole, setJobRole] = useState<string>('');
+  const [customRoleMode, setCustomRoleMode] = useState<boolean>(false);
+  const [showFindButton, setShowFindButton] = useState<boolean>(false);
   const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([]);
   const [appliedJobs, setAppliedJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
@@ -32,32 +40,112 @@ const JobsPage: React.FC = () => {
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [pendingJob, setPendingJob] = useState<Job | null>(null);
 
-  const apiBase = 'http://127.0.0.1:8000';
+  const apiBase = 'https://jobsy-uye6.onrender.com';
 
+  // Fetch recommended jobs using authentication header
   const fetchRecommendedJobs = async () => {
     if (!user?.id) return;
     try {
       const res = await fetch(
-        `${apiBase}/get-all-jobs?user_id=${encodeURIComponent(user.id)}`
+        `${apiBase}/recommended-jobs?user_id=${encodeURIComponent(user.id)}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user.id}`
+          }
+        }
       );
       const data = await res.json();
-      const jobs: Job[] = Array.isArray(data)
-        ? data.map((j: any) => ({
-            id: j._id,
-            title: j.title,
-            company: j.company,
-            description: j.description,
-            requirements: j.requirements,
-            matchingSkills: j.matchingSkills,
-            experienceRequired: j.experience_required,
-            score: j.score,
-            link: j.link,
-            applied: !!j.applied
-          }))
-        : [];
-      setRecommendedJobs(jobs.filter(j => !j.applied));
-    } catch {
+      setRecommendedJobs(
+        Array.isArray(data.recommended_jobs)
+          ? data.recommended_jobs.map((j: any) => ({
+              id: j.id,
+              title: j.title,
+              company: j.company,
+              description: j.description,
+              requirements: j.requirements,
+              matchingSkills: j.matchingSkills,
+              experienceRequired: j.experience_required,
+              score: j.score,
+              link: j.link,
+              applied: !!j.applied
+            }))
+          : []
+      );
+    } catch (err) {
+      console.error(err);
       setRecommendedJobs([]);
+    }
+  };
+
+  // Fetch jobs by role (static recommendations)
+  const fetchJobsByRole = async (role: string) => {
+    setFindingJobs(true);
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `${apiBase}/jobs-by-role?job_role=${encodeURIComponent(role)}`
+      );
+      const data = await res.json();
+      setRecommendedJobs(
+        Array.isArray(data.jobs)
+          ? data.jobs.map((j: any) => ({
+              id: j.id,
+              title: j.title,
+              company: j.company,
+              description: j.description,
+              requirements: j.requirements,
+              matchingSkills: j.matchingSkills,
+              experienceRequired: j.experience_required,
+              score: j.score,
+              link: j.link,
+              applied: !!j.applied
+            }))
+          : []
+      );
+    } catch (err) {
+      console.error(err);
+      setRecommendedJobs([]);
+    } finally {
+      setLoading(false);
+      setFindingJobs(false);
+    }
+  };
+
+  // Fetch dynamic jobs based on resume, location, role
+  const fetchFindJobs = async (role: string, locationOpt: string) => {
+    if (!user?.id) return;
+    setFindingJobs(true);
+    setLoading(true);
+    try {
+      const url = new URL(`${apiBase}/find-jobs`);
+      url.searchParams.append('user_id', user.id);
+      url.searchParams.append('job_role', role);
+      if (locationOpt.trim()) url.searchParams.append('location', locationOpt);
+      const res = await fetch(url.toString(), { method: 'POST' });
+      const data = await res.json();
+      setRecommendedJobs(
+        Array.isArray(data.all_jobs)
+          ? data.all_jobs.map((j: any) => ({
+              id: j.id,
+              title: j.title,
+              company: j.company,
+              description: j.description,
+              requirements: j.requirements,
+              matchingSkills: j.matchingSkills,
+              experienceRequired: j.experience_required,
+              score: j.score,
+              link: j.link,
+              applied: !!j.applied
+            }))
+          : []
+      );
+    } catch (err) {
+      console.error(err);
+      setRecommendedJobs([]);
+    } finally {
+      setLoading(false);
+      setFindingJobs(false);
     }
   };
 
@@ -68,24 +156,25 @@ const JobsPage: React.FC = () => {
         `${apiBase}/applied-jobs?user_id=${encodeURIComponent(user.id)}`
       );
       const data = await res.json();
-      const apps: Job[] = Array.isArray(data.applied_jobs)
-        ? data.applied_jobs.map((j: any) => ({
-            id: j._id,
-            title: j.title,
-            company: j.company,
-            location: j.location,
-            salary: j.salary,
-            postedDate: j.postedDate,
-            description: j.description,
-            requirements: j.requirements,
-            matchingSkills: j.matchingSkills,
-            experienceRequired: j.experience_required,
-            score: j.score,
-            link: j.link,
-            applied: true
-          }))
-        : [];
-      setAppliedJobs(apps);
+      setAppliedJobs(
+        Array.isArray(data.applied_jobs)
+          ? data.applied_jobs.map((j: any) => ({
+              id: j._id,
+              title: j.title,
+              company: j.company,
+              location: j.location,
+              salary: j.salary,
+              postedDate: j.postedDate,
+              description: j.description,
+              requirements: j.requirements,
+              matchingSkills: j.matchingSkills,
+              experienceRequired: j.experience_required,
+              score: j.score,
+              link: j.link,
+              applied: true
+            }))
+          : []
+      );
     } catch {
       setAppliedJobs([]);
     }
@@ -98,7 +187,6 @@ const JobsPage: React.FC = () => {
       await Promise.all([fetchRecommendedJobs(), fetchAppliedJobs()]);
       setLoading(false);
 
-      // check if returning from external apply
       const pending = sessionStorage.getItem('pendingApplyJob');
       if (pending) {
         const job: Job = JSON.parse(pending);
@@ -108,53 +196,45 @@ const JobsPage: React.FC = () => {
     })();
   }, [user?.id]);
 
-  const handleFindJobs = async () => {
-    if (!user?.id) return;
-    if (!jobRole.trim()) {
-      alert('Please enter a Job Role to find jobs.');
-      return;
-    }
-    setFindingJobs(true);
-    setLoading(true);
-    try {
-      await fetch(
-        `${apiBase}/find-jobs?user_id=${encodeURIComponent(user.id)}` +
-          `&job_role=${encodeURIComponent(jobRole)}` +
-          `&location=${encodeURIComponent(locationFilter)}`,
-        { method: 'POST' }
-      );
-      await Promise.all([fetchRecommendedJobs(), fetchAppliedJobs()]);
-    } catch {
-    } finally {
-      setLoading(false);
-      setFindingJobs(false);
+  const handleRoleClick = (role: string) => {
+    setJobRole(role);
+    setCustomRoleMode(false);
+    setShowFindButton(false);
+    fetchJobsByRole(role);
+    setActiveTab('recommended');
+  };
+
+  const handleOtherClick = () => {
+    setJobRole('');
+    setCustomRoleMode(true);
+    setShowFindButton(false);
+  };
+
+  const handleCustomRoleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setJobRole(e.target.value);
+    setShowFindButton(e.target.value.trim().length > 0);
+  };
+
+  const handleFindJobs = () => {
+    if (jobRole.trim()) {
+      fetchFindJobs(jobRole, locationFilter);
+      setActiveTab('recommended');
     }
   };
 
-  const handleApplyJob = async (jobId: string, showAlert = true) => {
-    if (!user?.id) return;
-    try {
-      const res = await fetch(
-        `${apiBase}/apply-job?user_id=${encodeURIComponent(user.id)}` +
-          `&job_id=${encodeURIComponent(jobId)}`,
-        { method: 'PUT' }
-      );
-      if (res.ok) {
-        await Promise.all([fetchRecommendedJobs(), fetchAppliedJobs()]);
-        if (showAlert) alert('Applied successfully!');
-      }
-    } catch {}
-  };
-
-  // open link in new tab
   const handleApplyLink = (job: Job) => {
     sessionStorage.setItem('pendingApplyJob', JSON.stringify(job));
-    window.open(job.link!, '_blank');
+    window.location.href = job.link!;
   };
 
   const confirmApply = async () => {
-    if (pendingJob) {
-      await handleApplyJob(pendingJob.id, false);
+    if (pendingJob && user?.id) {
+      await fetch(
+        `${apiBase}/apply-job?user_id=${encodeURIComponent(user.id)}&job_id=${encodeURIComponent(
+          pendingJob.id
+        )}`,
+        { method: 'PUT' }
+      );
       alert(`Job application for ${pendingJob.title} recorded.`);
     }
     sessionStorage.removeItem('pendingApplyJob');
@@ -184,30 +264,68 @@ const JobsPage: React.FC = () => {
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">Job Recommendations</h1>
 
-        <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <input
-            type="text"
-            placeholder="Job Role"
-            value={jobRole}
-            onChange={e => setJobRole(e.target.value)}
-            className="px-3 py-2 border rounded-md"
-          />
+        {/* Location Input */}
+        <div className="mb-4">
           <input
             type="text"
             placeholder="Location (optional)"
             value={locationFilter}
             onChange={e => setLocationFilter(e.target.value)}
-            className="px-3 py-2 border rounded-md"
+            className="w-full px-3 py-2 border rounded-md"
           />
+        </div>
+
+        {/* Role Buttons */}
+        <div className="mb-4 flex flex-wrap gap-2">
+          {predefinedRoles.map(role => (
+            <button
+              key={role}
+              onClick={() => handleRoleClick(role)}
+              className={`px-4 py-2 rounded-md text-sm font-medium ${
+                jobRole === role
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
+              }`}
+            >
+              {role}
+            </button>
+          ))}
           <button
-            onClick={handleFindJobs}
-            disabled={!jobRole.trim()}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+            onClick={handleOtherClick}
+            className={`px-4 py-2 rounded-md text-sm font-medium ${
+              customRoleMode
+                ? 'bg-indigo-600 text-white'
+                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
+            }`}
           >
-            Find Jobs
+            Other Role
           </button>
         </div>
 
+        {/* Custom Role Input & Find Button */}
+        {customRoleMode && (
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Enter Job Role"
+              value={jobRole}
+              onChange={handleCustomRoleChange}
+              className="w-full px-3 py-2 border rounded-md"
+            />
+          </div>
+        )}
+        {showFindButton && (
+          <div className="mb-6">
+            <button
+              onClick={handleFindJobs}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+            >
+              Find Jobs
+            </button>
+          </div>
+        )}
+
+        {/* Tabs */}
         <div className="mb-6">
           <div className="hidden sm:block border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
@@ -245,6 +363,7 @@ const JobsPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Job Cards */}
         <div className="space-y-6">
           {currentList.length > 0 ? (
             currentList.map(job => (
@@ -254,24 +373,29 @@ const JobsPage: React.FC = () => {
                     {job.score}% Match
                   </span>
                 )}
-                <div className="mb-4">
-                  <h3 className="text-xl font-semibold text-gray-900">{job.title}</h3>
-                  <p className="text-sm text-gray-500">{job.company}</p>
+
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900">{job.title}</h3>
+                    <p className="mt-1 text-sm text-gray-500">{job.company}</p>
+                  </div>
                 </div>
+
                 {job.experienceRequired && (
                   <div className="flex items-center text-sm text-gray-700 mb-2">
                     <BriefcaseBusiness className="h-4 w-4 mr-1" />
-                    Experience: {job.experienceRequired}
+                    Experience Required: {job.experienceRequired}
                   </div>
                 )}
+
                 {job.description && <p className="text-gray-700 text-sm mb-4">{job.description}</p>}
-                {job.requirements && job.requirements.length > 0 && (
+
+                {Array.isArray(job.requirements) && job.requirements.length > 0 && (
                   <>
                     <p className="text-sm font-semibold text-gray-700 mb-2">Requirements</p>
                     <div className="flex flex-wrap gap-2 mb-4">
                       {job.requirements.map((req, idx) => {
-                        const matched =
-                          Array.isArray(job.matchingSkills) && job.matchingSkills.includes(req);
+                        const matched = Array.isArray(job.matchingSkills) && job.matchingSkills.includes(req);
                         return (
                           <span
                             key={idx}
@@ -287,13 +411,13 @@ const JobsPage: React.FC = () => {
                     </div>
                   </>
                 )}
+
                 {activeTab === 'recommended' && job.link && (
                   <button
                     onClick={() => handleApplyLink(job)}
                     className="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
                   >
-                    <Bookmark className="h-4 w-4 mr-2" />
-                    Apply Now
+                    <Bookmark className="h-4 w-4 mr-2" />Apply Now
                   </button>
                 )}
               </div>
@@ -311,11 +435,13 @@ const JobsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Apply Confirmation Modal */}
-      {showApplyModal && pendingJob && (
+            {/* Apply Confirmation Modal */}
+            {showApplyModal && pendingJob && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full">
-            <h2 className="text-lg font-semibold mb-4 text-gray-800">Confirm Application</h2>
+            <h2 className="text-lg font-semibold mb-4 text-gray-800">
+              Confirm Application
+            </h2>
             <p className="mb-6 text-gray-600">
               Did you apply to {pendingJob.title} at {pendingJob.company}?
             </p>
@@ -336,6 +462,7 @@ const JobsPage: React.FC = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };
