@@ -7,6 +7,7 @@ const API_BASE = 'https://jobsy-uye6.onrender.com';
 const LoginPage: React.FC = () => {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -15,7 +16,6 @@ const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Only redirect to jobs on login flow
     if (isAuthenticated && !isSignUp) {
       navigate('/jobs');
     }
@@ -58,8 +58,8 @@ const LoginPage: React.FC = () => {
         throw new Error(typeof body.detail === 'string' ? body.detail : 'Request failed');
       }
 
-      // On successful registration, log in and go to upload
-      login({ user_id: body.user_id, email });
+      // Persist userId/email to AuthContext and redirect accordingly
+      login({ userId: body.user_id, email });
       if (isSignUp) {
         navigate('/upload');
       } else {
