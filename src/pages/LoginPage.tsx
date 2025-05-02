@@ -14,10 +14,9 @@ const LoginPage: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/jobs');
-    }
+    if (isAuthenticated) navigate('/jobs');
   }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,24 +25,22 @@ const LoginPage: React.FC = () => {
     setError('');
 
     try {
+      const endpoint = isSignUp ? '/user-register' : '/user-login';
+      const payload = isSignUp
+        ? { full_name: fullName, email, password }
+        : { email, password };
+
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(typeof body.detail === 'string' ? body.detail : 'Request failed');
+
       if (isSignUp) {
-        const res = await fetch(`${API_BASE}/user-register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ full_name: fullName, email, password }),
-        });
-        const body = await res.json();
-        if (!res.ok) throw new Error(typeof body.detail === 'string' ? body.detail : 'Registration failed');
         navigate('/upload');
       } else {
-        const res = await fetch(`${API_BASE}/user-login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        });
-        const body = await res.json();
-        if (!res.ok) throw new Error(typeof body.detail === 'string' ? body.detail : 'Login failed');
-
         login({ user_id: body.user_id, email });
         navigate('/jobs');
       }
@@ -55,11 +52,13 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4 sm:px-6 lg:px-8">
-      <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+      <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md w-full max-w-md">
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-blue-600 mb-1">JobSY</h1>
-          <p className="text-gray-600 text-sm">Find your dream job with personalized recommendations</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-blue-600 mb-1">JobSY</h1>
+          <p className="text-gray-600 text-sm sm:text-base">
+            Find your dream job with personalized recommendations
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -69,7 +68,7 @@ const LoginPage: React.FC = () => {
               placeholder="Full Name"
               value={fullName}
               onChange={e => setFullName(e.target.value)}
-              className="w-full px-4 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               required
             />
           )}
@@ -78,7 +77,7 @@ const LoginPage: React.FC = () => {
             placeholder="Email"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            className="w-full px-4 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             required
           />
           <input
@@ -86,7 +85,7 @@ const LoginPage: React.FC = () => {
             placeholder="Password"
             value={password}
             onChange={e => setPassword(e.target.value)}
-            className="w-full px-4 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             required
           />
 
@@ -95,7 +94,7 @@ const LoginPage: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-md text-sm hover:bg-blue-700 transition-all"
+            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors text-sm"
           >
             {loading ? 'Please wait...' : isSignUp ? 'Sign Up' : 'Login'}
           </button>
