@@ -235,7 +235,7 @@ const JobsPage: React.FC = () => {
         )}`,
         { method: 'PUT' }
       );
-      alert(`Job application for ${pendingJob.title} recorded.`);
+      // alert(`Job application for ${pendingJob.title} recorded.`);
     }
     sessionStorage.removeItem('pendingApplyJob');
     setShowApplyModal(false);
