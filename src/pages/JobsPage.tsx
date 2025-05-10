@@ -27,22 +27,32 @@ const JobsPage: React.FC = () => {
   const location = useLocation() as Location & { state?: LocationState };
 
   const [locationFilter, setLocationFilter] = useState<string>('');
-  const [jobRole, setJobRole] = useState<string>('');
   const [customRoleMode, setCustomRoleMode] = useState<boolean>(false);
-  const [showFindButton, setShowFindButton] = useState<boolean>(false);
+  const [customRoleInput, setCustomRoleInput] = useState<string>('');
+
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [recommendedJobsByRole, setRecommendedJobsByRole] = useState<Record<string, Job[]>>({});
   const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([]);
   const [appliedJobs, setAppliedJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [findingJobs, setFindingJobs] = useState(false);
   const [activeTab, setActiveTab] = useState<'recommended' | 'applied'>('recommended');
 
-  // modal state for apply confirmation
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [pendingJob, setPendingJob] = useState<Job | null>(null);
 
   const apiBase = 'https://jobsy-uye6.onrender.com';
 
-  // Fetch recommended jobs using authentication header
+  // Compute how many recommendation jobs are currently shown
+  const recommendedCount = selectedRoles.length > 0
+    ? selectedRoles.reduce(
+        (sum, role) => sum + (recommendedJobsByRole[role]?.length || 0),
+        0
+      )
+    : recommendedJobs.length;
+
+  // --- FETCH FUNCTIONS ---
+
   const fetchRecommendedJobs = async () => {
     if (!user?.id) return;
     try {
@@ -56,129 +66,101 @@ const JobsPage: React.FC = () => {
         }
       );
       const data = await res.json();
-      setRecommendedJobs(
-        Array.isArray(data.recommended_jobs)
-          ? data.recommended_jobs.map((j: any) => ({
-              id: j.id,
-              title: j.title,
-              company: j.company,
-              description: j.description,
-              requirements: j.requirements,
-              matchingSkills: j.matchingSkills,
-              experienceRequired: j.experience_required,
-              score: j.score,
-              link: j.link,
-              applied: !!j.applied
-            }))
-          : []
-      );
-    } catch (err) {
-      console.error(err);
+      if (Array.isArray(data.recommended_jobs)) {
+        setRecommendedJobs(data.recommended_jobs.map((j: any) => ({
+          id: j.id,
+          title: j.title,
+          company: j.company,
+          description: j.description,
+          requirements: j.requirements,
+          matchingSkills: j.matchingSkills,
+          experienceRequired: j.experience_required,
+          score: j.score,
+          link: j.link,
+          applied: !!j.applied
+        })));
+      } else {
+        setRecommendedJobs([]);
+      }
+    } catch {
       setRecommendedJobs([]);
     }
   };
 
-  // Fetch jobs by role (static recommendations)
   const fetchJobsByRole = async (role: string) => {
-    setFindingJobs(true);
-    setLoading(true);
     try {
+      setFindingJobs(true);
       const res = await fetch(
         `${apiBase}/jobs-by-role?job_role=${encodeURIComponent(role)}`
       );
       const data = await res.json();
-      setRecommendedJobs(
-        Array.isArray(data.jobs)
-          ? data.jobs.map((j: any) => ({
-              id: j.id,
-              title: j.title,
-              company: j.company,
-              description: j.description,
-              requirements: j.requirements,
-              matchingSkills: j.matchingSkills,
-              experienceRequired: j.experience_required,
-              score: j.score,
-              link: j.link,
-              applied: !!j.applied
-            }))
-          : []
-      );
-    } catch (err) {
-      console.error(err);
-      setRecommendedJobs([]);
+      const jobs = Array.isArray(data.jobs)
+        ? data.jobs.map((j: any) => ({
+            id: j.id,
+            title: j.title,
+            company: j.company,
+            description: j.description,
+            requirements: j.requirements,
+            matchingSkills: j.matchingSkills,
+            experienceRequired: j.experience_required,
+            score: j.score,
+            link: j.link,
+            applied: !!j.applied
+          }))
+        : [];
+      setRecommendedJobsByRole(prev => ({
+        ...prev,
+        [role]: jobs
+      }));
+    } catch {
+      setRecommendedJobsByRole(prev => ({
+        ...prev,
+        [role]: []
+      }));
     } finally {
-      setLoading(false);
-      setFindingJobs(false);
-    }
-  };
-
-  // Fetch dynamic jobs based on resume, location, role
-  const fetchFindJobs = async (role: string, locationOpt: string) => {
-    if (!user?.id) return;
-    setFindingJobs(true);
-    setLoading(true);
-    try {
-      const url = new URL(`${apiBase}/find-jobs`);
-      url.searchParams.append('user_id', user.id);
-      url.searchParams.append('job_role', role);
-      if (locationOpt.trim()) url.searchParams.append('location', locationOpt);
-      const res = await fetch(url.toString(), { method: 'POST' });
-      const data = await res.json();
-      setRecommendedJobs(
-        Array.isArray(data.all_jobs)
-          ? data.all_jobs.map((j: any) => ({
-              id: j.id,
-              title: j.title,
-              company: j.company,
-              description: j.description,
-              requirements: j.requirements,
-              matchingSkills: j.matchingSkills,
-              experienceRequired: j.experience_required,
-              score: j.score,
-              link: j.link,
-              applied: !!j.applied
-            }))
-          : []
-      );
-    } catch (err) {
-      console.error(err);
-      setRecommendedJobs([]);
-    } finally {
-      setLoading(false);
       setFindingJobs(false);
     }
   };
 
   const fetchAppliedJobs = async () => {
-    if (!user?.id) return;
-    try {
-      const res = await fetch(
-        `${apiBase}/applied-jobs?user_id=${encodeURIComponent(user.id)}`
-      );
-      const data = await res.json();
-      setAppliedJobs(
-        Array.isArray(data.applied_jobs)
-          ? data.applied_jobs.map((j: any) => ({
-              id: j._id,
-              title: j.title,
-              company: j.company,
-              location: j.location,
-              salary: j.salary,
-              postedDate: j.postedDate,
-              description: j.description,
-              requirements: j.requirements,
-              matchingSkills: j.matchingSkills,
-              experienceRequired: j.experience_required,
-              score: j.score,
-              link: j.link,
-              applied: true
-            }))
-          : []
-      );
-    } catch {
+  if (!user?.id) return;
+  try {
+    const res = await fetch(
+      `${apiBase}/applied-jobs?user_id=${encodeURIComponent(user.id)}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.id}`
+        }
+      }
+    );
+    const data = await res.json();
+    if (Array.isArray(data.applied_jobs)) {
+      setAppliedJobs(data.applied_jobs.map((j: any) => ({
+        id: j._id,
+        title: j.title,
+        company: j.company,
+        location: j.location,
+        salary: j.salary,
+        postedDate: j.postedDate,
+        description: j.description,
+        requirements: j.requirements,
+        matchingSkills: j.matchingSkills,
+        experienceRequired: j.experience_required,
+        score: j.score,
+        link: j.link,
+        applied: true
+      })));
+    } else {
       setAppliedJobs([]);
     }
-  };
+  } catch (err) {
+    console.error('Error fetching applied jobs:', err);
+    setAppliedJobs([]);
+  }
+};
+
+  // --- EFFECTS ---
 
   useEffect(() => {
     if (!user?.id) return;
@@ -188,59 +170,92 @@ const JobsPage: React.FC = () => {
       setLoading(false);
 
       const pending = sessionStorage.getItem('pendingApplyJob');
-      if (pending) {
-        const job: Job = JSON.parse(pending);
-        setPendingJob(job);
+      const confirmed = sessionStorage.getItem('applyConfirmed');
+      if (pending && confirmed !== 'true') {
+        setPendingJob(JSON.parse(pending));
         setShowApplyModal(true);
       }
     })();
   }, [user?.id]);
 
-  const handleRoleClick = (role: string) => {
-    setJobRole(role);
-    setCustomRoleMode(false);
-    setShowFindButton(false);
-    fetchJobsByRole(role);
-    setActiveTab('recommended');
-  };
+  // --- HANDLERS ---
 
-  const handleOtherClick = () => {
-    setJobRole('');
-    setCustomRoleMode(true);
-    setShowFindButton(false);
-  };
-
-  const handleCustomRoleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setJobRole(e.target.value);
-    setShowFindButton(e.target.value.trim().length > 0);
-  };
-
-  const handleFindJobs = () => {
-    if (jobRole.trim()) {
-      fetchFindJobs(jobRole, locationFilter);
+  const handleRoleToggle = (role: string) => {
+    if (selectedRoles.includes(role)) {
+      setSelectedRoles(prev => prev.filter(r => r !== role));
+      setRecommendedJobsByRole(prev => {
+        const copy = { ...prev };
+        delete copy[role];
+        return copy;
+      });
+    } else {
+      setSelectedRoles(prev => [...prev, role]);
+      fetchJobsByRole(role);
       setActiveTab('recommended');
     }
   };
 
-  const handleApplyLink = (job: Job) => {
-    sessionStorage.setItem('pendingApplyJob', JSON.stringify(job));
-    window.location.href = job.link!;
+  const handleOtherClick = () => {
+    setCustomRoleMode(true);
   };
 
-  const confirmApply = async () => {
-    if (pendingJob && user?.id) {
-      await fetch(
-        `${apiBase}/apply-job?user_id=${encodeURIComponent(user.id)}&job_id=${encodeURIComponent(
-          pendingJob.id
-        )}`,
-        { method: 'PUT' }
-      );
-      // alert(`Job application for ${pendingJob.title} recorded.`);
-    }
-    sessionStorage.removeItem('pendingApplyJob');
-    setShowApplyModal(false);
-    setPendingJob(null);
+  const handleAddCustomRole = () => {
+    const role = customRoleInput.trim();
+    if (!role) return;
+    handleRoleToggle(role);
+    setCustomRoleInput('');
+    setCustomRoleMode(false);
   };
+
+  const handleApplyLink = (job: Job) => {
+    sessionStorage.setItem('pendingApplyJob', JSON.stringify(job));
+    sessionStorage.setItem('applyConfirmed', 'false');
+    // Open external link in a new tab so our page stays mounted
+    window.open(job.link!, '_blank');
+  };
+
+  useEffect(() => {
+    const checkPending = () => {
+      const pending = sessionStorage.getItem('pendingApplyJob');
+      const confirmed = sessionStorage.getItem('applyConfirmed');
+      if (pending && confirmed !== 'true') {
+        setPendingJob(JSON.parse(pending));
+        setShowApplyModal(true);
+      }
+    };
+  
+    window.addEventListener('focus', checkPending);
+    return () => window.removeEventListener('focus', checkPending);
+  }, []);
+
+  const confirmApply = async () => {
+  if (pendingJob && user?.id) {
+    try {
+      const res = await fetch(
+        `${apiBase}/apply-job?user_id=${encodeURIComponent(user.id)}&job_id=${encodeURIComponent(pendingJob.id)}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user.id}`
+          }
+        }
+      );
+      if (res.ok) {
+        // ... update local state as before
+        await fetchAppliedJobs(); // re-sync applied list
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  sessionStorage.setItem('applyConfirmed', 'true');
+  sessionStorage.removeItem('pendingApplyJob');
+  setShowApplyModal(false);
+  setPendingJob(null);
+};
+
 
   const cancelApply = () => {
     sessionStorage.removeItem('pendingApplyJob');
@@ -256,7 +271,7 @@ const JobsPage: React.FC = () => {
     );
   }
 
-  const currentList = activeTab === 'recommended' ? recommendedJobs : appliedJobs;
+  const hasRoleSelection = selectedRoles.length > 0;
 
   return (
     <div className="min-h-screen bg-gray-200">
@@ -264,7 +279,6 @@ const JobsPage: React.FC = () => {
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">Job Recommendations</h1>
 
-        {/* Location Input */}
         <div className="mb-4">
           <input
             type="text"
@@ -275,14 +289,13 @@ const JobsPage: React.FC = () => {
           />
         </div>
 
-        {/* Role Buttons */}
         <div className="mb-4 flex flex-wrap gap-2">
           {predefinedRoles.map(role => (
             <button
               key={role}
-              onClick={() => handleRoleClick(role)}
+              onClick={() => handleRoleToggle(role)}
               className={`px-4 py-2 rounded-md text-sm font-medium ${
-                jobRole === role
+                selectedRoles.includes(role)
                   ? 'bg-indigo-600 text-white'
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
               }`}
@@ -302,30 +315,24 @@ const JobsPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Custom Role Input & Find Button */}
         {customRoleMode && (
-          <div className="mb-4">
+          <div className="mb-4 flex gap-2">
             <input
               type="text"
               placeholder="Enter Job Role"
-              value={jobRole}
-              onChange={handleCustomRoleChange}
-              className="w-full px-3 py-2 border rounded-md"
+              value={customRoleInput}
+              onChange={e => setCustomRoleInput(e.target.value)}
+              className="flex-1 px-3 py-2 border rounded-md"
             />
-          </div>
-        )}
-        {showFindButton && (
-          <div className="mb-6">
             <button
-              onClick={handleFindJobs}
+              onClick={handleAddCustomRole}
               className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
             >
-              Find Jobs
+              {selectedRoles.includes(customRoleInput.trim()) ? 'Remove' : 'Add'}
             </button>
           </div>
         )}
 
-        {/* Tabs */}
         <div className="mb-6">
           <div className="hidden sm:block border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
@@ -337,7 +344,7 @@ const JobsPage: React.FC = () => {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                Recommended ({recommendedJobs.length})
+                Recommended ({recommendedCount})
               </button>
               <button
                 onClick={() => setActiveTab('applied')}
@@ -357,91 +364,170 @@ const JobsPage: React.FC = () => {
               value={activeTab}
               onChange={e => setActiveTab(e.target.value as any)}
             >
-              <option value="recommended">Recommended ({recommendedJobs.length})</option>
+              <option value="recommended">Recommended ({recommendedCount})</option>
               <option value="applied">Applied ({appliedJobs.length})</option>
             </select>
           </div>
         </div>
 
-        {/* Job Cards */}
-        <div className="space-y-6">
-          {currentList.length > 0 ? (
-            currentList.map(job => (
-              <div key={job.id} className="relative bg-white rounded-lg shadow p-6">
-                {activeTab === 'recommended' && job.score !== undefined && (
-                  <span className="absolute top-4 right-4 inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded bg-indigo-100 text-indigo-800">
-                    {job.score}% Match
-                  </span>
-                )}
-
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900">{job.title}</h3>
-                    <p className="mt-1 text-sm text-gray-500">{job.company}</p>
+        {activeTab === 'recommended' ? (
+          <div className="space-y-6">
+            {hasRoleSelection ? (
+              selectedRoles.map(role => {
+                const jobs = recommendedJobsByRole[role] || [];
+                return (
+                  <div key={role}>
+                    {selectedRoles.length > 1 && (
+                      <h2 className="text-2xl font-semibold text-gray-800 mb-4">{role}</h2>
+                    )}
+                    {jobs.length > 0 ? (
+                      jobs.map(job => (
+                        <div key={job.id} className="relative bg-white rounded-lg shadow p-6 mb-4">
+                          {job.score !== undefined && (
+                            <span className="absolute top-4 right-4 inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded bg-indigo-100 text-indigo-800">
+                              {job.score}% Match
+                            </span>
+                          )}
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <h3 className="text-xl font-semibold text-gray-900">{job.title}</h3>
+                              <p className="mt-1 text-sm text-gray-500">{job.company}</p>
+                            </div>
+                          </div>
+                          {job.experienceRequired && (
+                            <div className="flex items-center text-sm text-gray-700 mb-2">
+                              <BriefcaseBusiness className="h-4 w-4 mr-1" />
+                              Experience: {job.experienceRequired}
+                            </div>
+                          )}
+                          {job.description && <p className="text-gray-700 text-sm mb-4">{job.description}</p>}
+                          {Array.isArray(job.requirements) && job.requirements.length > 0 && (
+                            <>
+                              <p className="text-sm font-semibold text-gray-700 mb-2">Requirements</p>
+                              <div className="flex flex-wrap gap-2 mb-4">
+                                {job.requirements.map((req, idx) => {
+                                  const matched = Array.isArray(job.matchingSkills) && job.matchingSkills.includes(req);
+                                  return (
+                                    <span
+                                      key={idx}
+                                      className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-sm font-medium ${
+                                        matched ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
+                                      }`}
+                                    >
+                                      {matched && <CheckCircle className="h-4 w-4" />}
+                                      <span>{req}</span>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          )}
+                          {job.link && (
+                            <button
+                              onClick={() => handleApplyLink(job)}
+                              className="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+                            >
+                              <Bookmark className="h-4 w-4 mr-2" />Apply Now
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-gray-500 italic">No jobs found for “{role}.”</p>
+                    )}
                   </div>
-                </div>
-
-                {job.experienceRequired && (
-                  <div className="flex items-center text-sm text-gray-700 mb-2">
-                    <BriefcaseBusiness className="h-4 w-4 mr-1" />
-                    Experience Required: {job.experienceRequired}
-                  </div>
-                )}
-
-                {job.description && <p className="text-gray-700 text-sm mb-4">{job.description}</p>}
-
-                {Array.isArray(job.requirements) && job.requirements.length > 0 && (
-                  <>
-                    <p className="text-sm font-semibold text-gray-700 mb-2">Requirements</p>
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {job.requirements.map((req, idx) => {
-                        const matched = Array.isArray(job.matchingSkills) && job.matchingSkills.includes(req);
-                        return (
-                          <span
-                            key={idx}
-                            className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-sm font-medium ${
-                              matched ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
-                            }`}
-                          >
-                            {matched && <CheckCircle className="h-4 w-4" />}
-                            <span>{req}</span>
-                          </span>
-                        );
-                      })}
+                );
+              })
+            ) : recommendedJobs.length > 0 ? (
+              recommendedJobs.map(job => (
+                <div key={job.id} className="relative bg-white rounded-lg shadow p-6">
+                  {job.score !== undefined && (
+                    <span className="absolute top-4 right-4 inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded bg-indigo-100 text-indigo-800">
+                      {job.score}% Match
+                    </span>
+                  )}
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900">{job.title}</h3>
+                      <p className="mt-1 text-sm text-gray-500">{job.company}</p>
                     </div>
-                  </>
-                )}
-
-                {activeTab === 'recommended' && job.link && (
-                  <button
-                    onClick={() => handleApplyLink(job)}
-                    className="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-                  >
-                    <Bookmark className="h-4 w-4 mr-2" />Apply Now
-                  </button>
-                )}
+                  </div>
+                  {job.experienceRequired && (
+                    <div className="flex items-center text-sm text-gray-700 mb-2">
+                      <BriefcaseBusiness className="h-4 w-4 mr-1" />
+                      Experience: {job.experienceRequired}
+                    </div>
+                  )}
+                  {job.description && <p className="text-gray-700 text-sm mb-4">{job.description}</p>}
+                  {Array.isArray(job.requirements) && job.requirements.length > 0 && (
+                    <>
+                      <p className="text-sm font-semibold text-gray-700 mb-2">Requirements</p>
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {job.requirements.map((req, idx) => {
+                          const matched = Array.isArray(job.matchingSkills) && job.matchingSkills.includes(req);
+                          return (
+                            <span
+                              key={idx}
+                              className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-sm font-medium ${
+                                matched ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
+                              }`}
+                            >
+                              {matched && <CheckCircle className="h-4 w-4" />}
+                              <span>{req}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                  {job.link && (
+                    <button
+                      onClick={() => handleApplyLink(job)}
+                      className="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+                    >
+                      <Bookmark className="h-4 w-4 mr-2" />Apply Now
+                    </button>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                <BriefcaseBusiness className="mx-auto h-12 w-12" />
+                <p className="mt-2">No recommended jobs available.</p>
               </div>
-            ))
-          ) : (
-            <div className="text-center py-12 text-gray-500">
-              <BriefcaseBusiness className="mx-auto h-12 w-12" />
-              <p className="mt-2">
-                {activeTab === 'recommended'
-                  ? 'No recommended jobs available.'
-                  : "You haven't applied to any jobs yet."}
-              </p>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {appliedJobs.length > 0 ? (
+              appliedJobs.map(job => (
+                <div key={job.id} className="bg-white rounded-lg shadow p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900">{job.title}</h3>
+                      <p className="mt-1 text-sm text-gray-500">{job.company}</p>
+                    </div>
+                    <span className="inline-flex items-center text-sm text-green-600">
+                      <CheckCircle className="h-5 w-5 mr-1" /> Applied
+                    </span>
+                  </div>
+                  <p className="text-gray-700 text-sm mb-4">{job.description}</p>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                <BriefcaseBusiness className="mx-auto h-12 w-12" />
+                <p className="mt-2">You haven't applied to any jobs yet.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-            {/* Apply Confirmation Modal */}
-            {showApplyModal && pendingJob && (
+      {showApplyModal && pendingJob && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full">
-            <h2 className="text-lg font-semibold mb-4 text-gray-800">
-              Confirm Application
-            </h2>
+            <h2 className="text-lg font-semibold mb-4 text-gray-800">Confirm Application</h2>
             <p className="mb-6 text-gray-600">
               Did you apply to {pendingJob.title} at {pendingJob.company}?
             </p>
@@ -462,7 +548,6 @@ const JobsPage: React.FC = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };
