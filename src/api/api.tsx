@@ -1,6 +1,6 @@
 /* src/api/api.ts */
 
-export const API_BASE = 'http://127.0.0.1:8000';
+export const API_BASE = 'https://jobsy-uye6.onrender.com';
 
 export function getApiBaseUrl(): string {
   return API_BASE;
