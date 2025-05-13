@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const API_BASE = 'https://jobsy-uye6.onrender.com';
 
 const LoginPage: React.FC = () => {
-  const { login, isAuthenticated, user } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -14,67 +14,53 @@ const LoginPage: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // On mount or auth change, redirect based on resume existence
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    (async () => {
-      try {
-        const res = await fetch(
-          `${API_BASE}/profile?user_email=${encodeURIComponent(user?.email ?? email)}`
-        );
-        if (res.ok) {
-          navigate('/profile');
-        } else {
-          navigate('/upload');
-        }
-      } catch {
-        navigate('/upload');
-      }
-    })();
-  }, [isAuthenticated, navigate, user, email]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
+      // Sign Up Flow
       if (isSignUp) {
         const res = await fetch(`${API_BASE}/user-register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ full_name: fullName, email, password }),
         });
-        const body = await res.json();
-        if (!res.ok) throw new Error(typeof body.detail === 'string' ? body.detail : 'Registration failed');
-        setError('Registration successful! Please log in.');
-        setIsSignUp(false);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Registration failed');
+
+        // Store user_id in auth context
+        login({ user_id: data.user_id, email });
+
+        // No profile yet; navigate to upload
+        navigate('/upload');
+        return;
+      }
+
+      // Login Flow
+      const loginRes = await fetch(`${API_BASE}/user-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const loginData = await loginRes.json();
+      if (!loginRes.ok) throw new Error(loginData.detail || 'Login failed');
+
+      // Store user_id for later use
+      login({ user_id: loginData.user_id, email });
+
+      // Check for existing profile using user_id
+      const profileRes = await fetch(
+        `${API_BASE}/profile?user_id=${encodeURIComponent(loginData.user_id)}`
+      );
+
+      if (profileRes.ok) {
+        // Profile exists → go to job page
+        navigate('/job');
       } else {
-        const res = await fetch(`${API_BASE}/user-login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        });
-        const body = await res.json();
-        if (!res.ok) throw new Error(typeof body.detail === 'string' ? body.detail : 'Login failed');
-
-        // set auth context
-        login({ user_id: body.user_id, email });
-
-        // After login, check if resume exists
-        try {
-          const profileRes = await fetch(
-            `${API_BASE}/profile?user_email=${encodeURIComponent(email)}`
-          );
-          if (profileRes.ok) {
-            navigate('/profile');
-          } else {
-            navigate('/upload');
-          }
-        } catch {
-          navigate('/upload');
-        }
+        // No profile → go to upload
+        navigate('/upload');
       }
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
@@ -97,7 +83,7 @@ const LoginPage: React.FC = () => {
               type="text"
               placeholder="Full Name"
               value={fullName}
-              onChange={e => setFullName(e.target.value)}
+              onChange={(e) => setFullName(e.target.value)}
               className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
@@ -106,7 +92,7 @@ const LoginPage: React.FC = () => {
             type="email"
             placeholder="Email"
             value={email}
-            onChange={e => setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value)}
             className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
@@ -114,7 +100,7 @@ const LoginPage: React.FC = () => {
             type="password"
             placeholder="Password"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
@@ -136,7 +122,7 @@ const LoginPage: React.FC = () => {
             setIsSignUp(!isSignUp);
             setError('');
             setPassword('');
-            if (isSignUp) setFullName('');
+            setFullName('');
           }}
         >
           {isSignUp ? 'Already have an account? Login' : "Don't have an account? Sign Up"}
