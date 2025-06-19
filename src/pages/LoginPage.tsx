@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = 'https://jobsy-backend.onrender.com';
 
 const LoginPage: React.FC = () => {
   const { login } = useAuth();
@@ -48,7 +48,6 @@ const LoginPage: React.FC = () => {
       const { user_id, resume_uploaded } = loginData;
       login({ user_id, email });
       navigate(resume_uploaded ? '/jobs' : '/upload');
-
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
     } finally {
@@ -57,11 +56,18 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-96">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-blue-600 mb-2">JobSY</h1>
-          <p className="text-gray-600">Find your dream job with personalized recommendations</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
+      {/* 
+        - Use w-full and max-w-md for responsive width:
+          on small screens, it will fill with some horizontal padding; 
+          on larger screens, it caps to max-w-md (~28rem, similar to w-96 but flexible).
+      */}
+      <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md w-full max-w-md">
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-blue-600 mb-1 sm:mb-2">JobSY</h1>
+          <p className="text-gray-600 text-sm sm:text-base">
+            Find your dream job with personalized recommendations
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -97,18 +103,19 @@ const LoginPage: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors"
+            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
           >
             {loading ? 'Please wait...' : isSignUp ? 'Sign Up' : 'Login'}
           </button>
         </form>
 
-        {/* Toggle between modes with links */}
+        {/* Toggle between modes */}
         <div className="mt-4 text-sm text-center text-gray-600">
           {isSignUp ? (
             <>
               Already have an account?{' '}
               <button
+                type="button"
                 onClick={() => {
                   setIsSignUp(false);
                   setError('');
@@ -124,6 +131,7 @@ const LoginPage: React.FC = () => {
             <>
               Don't have an account?{' '}
               <button
+                type="button"
                 onClick={() => {
                   setIsSignUp(true);
                   setError('');
@@ -138,7 +146,7 @@ const LoginPage: React.FC = () => {
           )}
         </div>
 
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="text-center text-xs sm:text-sm text-gray-500 mt-6">
           By signing in, you agree to our{' '}
           <a href="#" className="text-blue-600 hover:underline">
             Terms of Service
