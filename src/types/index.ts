@@ -19,15 +19,18 @@ export interface Education {
   year: string;
 }
 // src/types.ts
+// src/types.ts
 export interface Job {
-  id: string;                   // we’ll map Mongo’s _id → id
+  id: string;
   title: string;
   company: string;
-  location: string;
-  salary?: string;
-  postedDate?: string;
   description?: string;
   requirements?: string[];
   matchingSkills?: string[];
-  applied?: boolean;            // <— add this
+  // new fields:
+  experienceRequired?: string;
+  score?: number;
+  link?: string;
+  applied?: boolean;
+  appliedAt?: string;   
 }

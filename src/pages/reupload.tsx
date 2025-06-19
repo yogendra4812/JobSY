@@ -2,7 +2,8 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AlertCircle, Scissors as CutIcon } from 'lucide-react';
-import Navbar from '../components/Navbar';
+import SimpleNavbar from '../components/Navbar';
+import { parseResume } from '../api/api'; // ✅ Import the API method
 
 const UploadPage: React.FC = () => {
   const { user, updateUser } = useAuth();
@@ -26,7 +27,7 @@ const UploadPage: React.FC = () => {
     e.preventDefault();
 
     if (!file || !user?.id) {
-      setError('Please select a PDF and ensure you’re logged in.');
+      setError('Please select a file and ensure you’re logged in.');
       return;
     }
 
@@ -34,37 +35,15 @@ const UploadPage: React.FC = () => {
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const url = `https://jobsy-uye6.onrender.com/get-parse-resume?user_id=${encodeURIComponent(
-        user.id
-      )}`;
-
-      const res = await fetch(url, {
-        method: 'POST',
-        body: formData,
-      });
-
-      const body = await res.json();
-      console.log('Upload response:', body);
-
-      if (!res.ok) {
-        const msg =
-          typeof body.error === 'string'
-            ? body.error
-            : typeof body.detail === 'string'
-            ? body.detail
-            : JSON.stringify(body);
-        setError(msg);
-        return;
-      }
-
-      updateUser(body.parsed_data);
+      const result = await parseResume(file, user.id); // ✅ Use API function
+      const parsedSkills: string[] = Array.isArray(result.parsed_data.skills)
+        ? result.parsed_data.skills
+        : [];
+      updateUser({ skills: parsedSkills });
       navigate('/profile');
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Server error. Please try again later.');
+      setError(err.message || 'Failed to upload resume.');
     } finally {
       setIsUploading(false);
     }
@@ -72,7 +51,7 @@ const UploadPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f0f2f5]">
-      <Navbar />
+      <SimpleNavbar />
 
       <div className="max-w-2xl mx-auto text-center py-16 px-4">
         <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Upload Your Resume</h1>

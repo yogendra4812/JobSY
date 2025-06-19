@@ -7,47 +7,59 @@ import {
   ChevronRight
 } from 'lucide-react';
 import Navbar from '../components/JobNavbar';
-
-// Define a type for the profile returned from the backend
-interface Profile {
-  full_name: string;
-  phone?: string;
-  email: string;
-  skills?: string[];
-  experience?: { position: string; company: string; duration: string }[];
-  education?: { degree: string; institution: string; year: string; score?: string }[];
-}
+import { fetchProfile, Profile } from '../api/api';
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      if (!user?.email) return;
+    const getProfile = async () => {
+      setLoading(true);
+      setError(null);
+
       try {
-        const res = await fetch(
-          `https://jobsy-uye6.onrender.com/profile?user_email=${encodeURIComponent(
-            user.email
-          )}`
-        );
-        const data: Profile = await res.json();
-        if (res.ok) setProfile(data);
+        // Use only user.id from auth context to fetch profile
+        const data = await fetchProfile(user!.id);
+        setProfile(data);
       } catch (err) {
-        console.error('Profile fetch error', err);
+        setError('Failed to load profile.');
       } finally {
         setLoading(false);
       }
     };
-    fetchProfile();
-  }, [user?.email]);
 
-  if (!user || loading) {
+    if (user && user.id) {
+      getProfile();
+    } else {
+      setError('User not authenticated.');
+      setLoading(false);
+    }
+  }, [user]);
+
+  if (loading) {
     return (
       <div className="h-screen flex items-center justify-center text-gray-600">
         Loading Profile...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-screen flex items-center justify-center text-red-600">
+        {error}
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="h-screen flex items-center justify-center text-gray-600">
+        No profile data available.
       </div>
     );
   }
@@ -59,12 +71,8 @@ const ProfilePage: React.FC = () => {
         <div className="bg-white shadow rounded-lg overflow-hidden">
           <div className="flex justify-between items-center px-6 py-4 border-b">
             <div>
-              <h3 className="text-lg font-medium text-gray-900">
-                Profile Information
-              </h3>
-              <p className="text-sm text-gray-500">
-                Personal details and skills
-              </p>
+              <h3 className="text-lg font-medium text-gray-900">Profile Information</h3>
+              <p className="text-sm text-gray-500">Personal details and skills</p>
             </div>
             <button
               onClick={() => navigate('/reupload')}
@@ -74,42 +82,30 @@ const ProfilePage: React.FC = () => {
               Re-upload
             </button>
           </div>
+
           <div className="p-6 space-y-4">
-            {/* Full Name */}
             <div>
               <dt className="text-sm font-medium text-gray-500">Full name</dt>
-              <dd className="mt-1 text-gray-900">
-                {profile?.full_name || 'N/A'}
-              </dd>
+              <dd className="mt-1 text-gray-900">{profile.full_name}</dd>
             </div>
 
-            {/* Phone Number */}
             <div>
               <dt className="text-sm font-medium text-gray-500">Phone number</dt>
-              <dd className="mt-1 text-gray-900">
-                {profile?.phone || 'Not provided'}
-              </dd>
+              <dd className="mt-1 text-gray-900">{profile.phone}</dd>
             </div>
 
-            {/* Email */}
             <div>
-              <dt className="text-sm font-medium text-gray-500">
-                Email address
-              </dt>
-              <dd className="mt-1 text-gray-900">{user.email}</dd>
+              <dt className="text-sm font-medium text-gray-500">Email address</dt>
+              <dd className="mt-1 text-gray-900">{profile.email}</dd>
             </div>
 
-            {/* Skills */}
             <div>
               <dt className="text-sm font-medium text-gray-500">Skills</dt>
               <dd className="mt-1">
-                {profile?.skills?.length ? (
+                {profile.skills.length ? (
                   <div className="flex flex-wrap gap-2">
                     {profile.skills.map((s, i) => (
-                      <span
-                        key={i}
-                        className="px-3 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-sm"
-                      >
+                      <span key={i} className="px-3 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-sm">
                         {s}
                       </span>
                     ))}
@@ -120,18 +116,15 @@ const ProfilePage: React.FC = () => {
               </dd>
             </div>
 
-            {/* Experience */}
             <div>
               <dt className="text-sm font-medium text-gray-500">Experience</dt>
               <dd className="mt-1">
-                {profile?.experience?.length ? (
+                {profile.experience.length ? (
                   <ul className="divide-y">
                     {profile.experience.map((exp, i) => (
                       <li key={i} className="py-2">
                         <strong>{exp.position}</strong> at {exp.company}
-                        <div className="text-gray-500 text-sm">
-                          {exp.duration}
-                        </div>
+                        <div className="text-gray-500 text-sm">{exp.duration}</div>
                       </li>
                     ))}
                   </ul>
@@ -141,28 +134,19 @@ const ProfilePage: React.FC = () => {
               </dd>
             </div>
 
-            {/* Education */}
             <div>
               <dt className="text-sm font-medium text-gray-500">Education</dt>
               <dd className="mt-1">
-                {profile?.education?.length ? (
+                {profile.education.length ? (
                   <ul className="divide-y">
                     {profile.education.map((ed, i) => (
                       <li key={i} className="py-2">
                         <div className="flex justify-between">
                           <strong>{ed.degree}</strong>
-                          {ed.score && (
-                            <span className="text-sm text-gray-600">
-                              Score: {ed.score}
-                            </span>
-                          )}
+                          {ed.score && <span className="text-sm text-gray-600">Score: {ed.score}</span>}
                         </div>
-                        <div>
-                          from {ed.institution}
-                        </div>
-                        <div className="text-gray-500 text-sm">
-                          {ed.year}
-                        </div>
+                        <div>from {ed.institution}</div>
+                        <div className="text-gray-500 text-sm">{ed.year}</div>
                       </li>
                     ))}
                   </ul>

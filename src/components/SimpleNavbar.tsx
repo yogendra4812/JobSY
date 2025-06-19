@@ -28,7 +28,7 @@ const SimpleNavbar: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             {/* Brand / Logo */}
-            <div className="flex items-center cursor-pointer" onClick={() => navigate('/') }>
+            <div className="flex items-center cursor-pointer" >
               <BriefcaseBusiness className="h-8 w-8 mr-2" />
               <span className="font-bold text-xl">JobSY</span>
             </div>
